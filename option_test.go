@@ -1,6 +1,9 @@
 package option
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestOption_IsNone(t *testing.T) {
 	none := None[int]()
@@ -96,10 +99,294 @@ func TestOption_UnwrapOr_Struct(t *testing.T) {
 func TestOption_UnwrapOrElse_Struct(t *testing.T) {
 	some := Some[testStruct](testStruct{42})
 	if some.UnwrapOrElse(func() testStruct { return testStruct{0} }).value != 42 {
-		t.Errorf("Expected `UnwrapOrElse` to return 42")
+		t.Errorf("Expected `UnwrapOrElse` to return `testStruct { value: 42 }`")
 	}
 	none := None[testStruct]()
 	if none.UnwrapOrElse(func() testStruct { return testStruct{21} }).value != 21 {
-		t.Errorf("Expected `UnwrapOrElse` to return 21")
+		t.Errorf("Expected `UnwrapOrElse` to return `testStruct { value: 21 }`")
 	}
+}
+
+func TestOption_Nil(t *testing.T) {
+	none := Some[*testStruct](nil)
+	if !none.IsNone() {
+		t.Errorf("Expected `IsNone` to return true")
+	}
+	if none.IsSome() {
+		t.Errorf("Expected `IsSome` to return false")
+	}
+}
+
+func TestOption_Nil_Unwrap(t *testing.T) {
+	none := Some[*testStruct](nil)
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("Expected `Unwrap` to panic")
+		}
+	}()
+	none.Unwrap()
+}
+
+func TestOption_Nil_UnwrapOr(t *testing.T) {
+	none := Some[*testStruct](nil)
+	if none.UnwrapOr(&testStruct{42}).value != 42 {
+		t.Errorf("Expected `UnwrapOr` to return `&testStruct { value: 42 }`")
+	}
+}
+
+func TestOption_Nil_UnwrapOrElse(t *testing.T) {
+	none := Some[*testStruct](nil)
+	if none.UnwrapOrElse(func() *testStruct { return &testStruct{42} }).value != 42 {
+		t.Errorf("Expected `UnwrapOrElse` to return `&testStruct { value: 42 }`")
+	}
+}
+
+func BenchmarkOption_IsNone(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		none := None[int]()
+		none.IsNone()
+	}
+}
+
+func BenchmarkOption_IsSome(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		some := Some[int](42)
+		some.IsSome()
+	}
+}
+
+func BenchmarkOption_Unwrap(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		some := Some[int](42)
+		some.Unwrap()
+	}
+}
+
+func BenchmarkOption_UnwrapOr(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		some := Some[int](42)
+		some.UnwrapOr(0)
+	}
+}
+
+func BenchmarkOption_UnwrapOrElse(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		some := Some[int](42)
+		some.UnwrapOrElse(func() int { return 0 })
+	}
+}
+
+func BenchmarkOption_IsNone_Struct(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		none := None[testStruct]()
+		none.IsNone()
+	}
+}
+
+func BenchmarkOption_IsSome_Struct(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		some := Some[testStruct](testStruct{42})
+		some.IsSome()
+	}
+}
+
+func BenchmarkOption_Unwrap_Struct(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		some := Some[testStruct](testStruct{42})
+		some.Unwrap()
+	}
+}
+
+func BenchmarkOption_UnwrapOr_Struct(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		some := Some[testStruct](testStruct{42})
+		some.UnwrapOr(testStruct{0})
+	}
+}
+
+func BenchmarkOption_UnwrapOrElse_Struct(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		some := Some[testStruct](testStruct{42})
+		some.UnwrapOrElse(func() testStruct { return testStruct{0} })
+	}
+}
+
+func BenchmarkOption_Nil(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		none := Some[*testStruct](nil)
+		none.IsNone()
+	}
+}
+
+func BenchmarkOption_Nil_Unwrap(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		none := Some[*testStruct](nil)
+		func() {
+			defer func() {
+				if r := recover(); r == nil {
+					b.Errorf("Expected `Unwrap` to panic")
+				}
+			}()
+			none.Unwrap()
+		}()
+	}
+}
+
+func BenchmarkOption_Nil_UnwrapOr(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		none := Some[*testStruct](nil)
+		none.UnwrapOr(&testStruct{42})
+	}
+}
+
+func BenchmarkOption_Nil_UnwrapOrElse(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		none := Some[*testStruct](nil)
+		none.UnwrapOrElse(func() *testStruct { return &testStruct{42} })
+	}
+}
+
+func BenchmarkOption_IsNone_Parallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		none := None[int]()
+		for pb.Next() {
+			none.IsNone()
+		}
+	})
+}
+
+func BenchmarkOption_IsSome_Parallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		some := Some[int](42)
+		for pb.Next() {
+			some.IsSome()
+		}
+	})
+}
+
+func BenchmarkOption_Unwrap_Parallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		some := Some[int](42)
+		for pb.Next() {
+			some.Unwrap()
+		}
+	})
+}
+
+func BenchmarkOption_UnwrapOr_Parallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		some := Some[int](42)
+		for pb.Next() {
+			some.UnwrapOr(0)
+		}
+	})
+}
+
+func BenchmarkOption_UnwrapOrElse_Parallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		some := Some[int](42)
+		for pb.Next() {
+			some.UnwrapOrElse(func() int { return 0 })
+		}
+	})
+}
+
+func BenchmarkOption_IsNone_Struct_Parallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		none := None[testStruct]()
+		for pb.Next() {
+			none.IsNone()
+		}
+	})
+}
+
+func BenchmarkOption_IsSome_Struct_Parallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		some := Some[testStruct](testStruct{42})
+		for pb.Next() {
+			some.IsSome()
+		}
+	})
+}
+
+func BenchmarkOption_Unwrap_Struct_Parallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		some := Some[testStruct](testStruct{42})
+		for pb.Next() {
+			some.Unwrap()
+		}
+	})
+}
+
+func BenchmarkOption_UnwrapOr_Struct_Parallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		some := Some[testStruct](testStruct{42})
+		for pb.Next() {
+			some.UnwrapOr(testStruct{0})
+		}
+	})
+}
+
+func BenchmarkOption_UnwrapOrElse_Struct_Parallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		some := Some[testStruct](testStruct{42})
+		for pb.Next() {
+			some.UnwrapOrElse(func() testStruct { return testStruct{0} })
+		}
+	})
+}
+
+func BenchmarkOption_Nil_Parallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		none := Some[*testStruct](nil)
+		for pb.Next() {
+			none.IsNone()
+		}
+	})
+}
+
+func BenchmarkOption_Nil_Unwrap_Parallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		none := Some[*testStruct](nil)
+		for pb.Next() {
+			func() {
+				defer func() {
+					if r := recover(); r == nil {
+						b.Errorf("Expected `Unwrap` to panic")
+					}
+				}()
+				none.Unwrap()
+			}()
+		}
+	})
+}
+
+func BenchmarkOption_Nil_UnwrapOr_Parallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		none := Some[*testStruct](nil)
+		for pb.Next() {
+			none.UnwrapOr(&testStruct{42})
+		}
+	})
+}
+
+func BenchmarkOption_Nil_UnwrapOrElse_Parallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		none := Some[*testStruct](nil)
+		for pb.Next() {
+			none.UnwrapOrElse(func() *testStruct { return &testStruct{42} })
+		}
+	})
+}
+
+func ExampleOption_IsNone() {
+	none := None[int]()
+	fmt.Println(none.IsNone())
+	// Output: true
+}
+
+func ExampleOption_IsSome() {
+	some := Some[int](42)
+	fmt.Println(some.IsSome())
+	// Output: true
 }

@@ -1,11 +1,16 @@
 package option
 
+import "reflect"
+
 type Option[T any] struct {
 	none bool
 	some T
 }
 
 func Some[T any](value T) Option[T] {
+	if isNil(value) {
+		return Option[T]{none: true}
+	}
 	return Option[T]{some: value}
 }
 
@@ -40,4 +45,20 @@ func (o Option[T]) UnwrapOrElse(f func() T) T {
 		return f()
 	}
 	return o.some
+}
+
+func isNil[T any](value T) bool {
+	v := reflect.ValueOf(value)
+	switch v.Kind() {
+	case reflect.Chan,
+		reflect.Func,
+		reflect.Map,
+		reflect.Ptr,
+		reflect.UnsafePointer,
+		reflect.Interface,
+		reflect.Slice:
+		return v.IsNil()
+	default:
+		return false
+	}
 }
