@@ -1,13 +1,14 @@
 package option
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 )
 
 func TestOption_IsNone(t *testing.T) {
-	none := None[int]()
-	if !none.IsNone() {
+	none := None[int](errors.New("some error"))
+	if isNone, _ := none.IsNone(); !isNone {
 		t.Errorf("Expected `IsNone` to return true")
 	}
 	if none.IsSome() {
@@ -20,7 +21,7 @@ func TestOption_IsSome(t *testing.T) {
 	if !some.IsSome() {
 		t.Errorf("Expected `IsSome` to return true")
 	}
-	if some.IsNone() {
+	if isNone, _ := some.IsNone(); isNone {
 		t.Errorf("Expected `IsNone` to return false")
 	}
 }
@@ -37,7 +38,7 @@ func TestOption_UnwrapOr(t *testing.T) {
 	if some.UnwrapOr(0) != 42 {
 		t.Errorf("Expected `UnwrapOr` to return 42")
 	}
-	none := None[int]()
+	none := None[int](errors.New("some error"))
 	if none.UnwrapOr(21) != 21 {
 		t.Errorf("Expected `UnwrapOr` to return 21")
 	}
@@ -48,7 +49,7 @@ func TestOption_UnwrapOrElse(t *testing.T) {
 	if some.UnwrapOrElse(func() int { return 0 }) != 42 {
 		t.Errorf("Expected `UnwrapOrElse` to return 42")
 	}
-	none := None[int]()
+	none := None[int](errors.New("some error"))
 	if none.UnwrapOrElse(func() int { return 21 }) != 21 {
 		t.Errorf("Expected `UnwrapOrElse` to return 21")
 	}
@@ -59,9 +60,17 @@ type testStruct struct {
 }
 
 func TestOption_IsNone_Struct(t *testing.T) {
-	none := None[testStruct]()
-	if !none.IsNone() {
+	expectedError := errors.New("testStruct: error")
+	var (
+		isNone bool
+		err    error
+	)
+	none := None[testStruct](expectedError)
+	if isNone, err = none.IsNone(); !isNone {
 		t.Errorf("Expected `IsNone` to return true")
+	}
+	if !errors.Is(err, expectedError) {
+		t.Errorf("Expected `err` to be `%q`", expectedError)
 	}
 	if none.IsSome() {
 		t.Errorf("Expected `IsSome` to return false")
@@ -73,7 +82,7 @@ func TestOption_IsSome_Struct(t *testing.T) {
 	if !some.IsSome() {
 		t.Errorf("Expected `IsSome` to return true")
 	}
-	if some.IsNone() {
+	if isNone, _ := some.IsNone(); isNone {
 		t.Errorf("Expected `IsNone` to return false")
 	}
 }
@@ -90,7 +99,7 @@ func TestOption_UnwrapOr_Struct(t *testing.T) {
 	if some.UnwrapOr(testStruct{0}).value != 42 {
 		t.Errorf("Expected `UnwrapOr` to return 42")
 	}
-	none := None[testStruct]()
+	none := None[testStruct](errors.New("some error"))
 	if none.UnwrapOr(testStruct{21}).value != 21 {
 		t.Errorf("Expected `UnwrapOr` to return 21")
 	}
@@ -101,7 +110,7 @@ func TestOption_UnwrapOrElse_Struct(t *testing.T) {
 	if some.UnwrapOrElse(func() testStruct { return testStruct{0} }).value != 42 {
 		t.Errorf("Expected `UnwrapOrElse` to return `testStruct { value: 42 }`")
 	}
-	none := None[testStruct]()
+	none := None[testStruct](errors.New("some error"))
 	if none.UnwrapOrElse(func() testStruct { return testStruct{21} }).value != 21 {
 		t.Errorf("Expected `UnwrapOrElse` to return `testStruct { value: 21 }`")
 	}
@@ -109,7 +118,7 @@ func TestOption_UnwrapOrElse_Struct(t *testing.T) {
 
 func TestOption_Nil(t *testing.T) {
 	none := Some[*testStruct](nil)
-	if !none.IsNone() {
+	if isNone, _ := none.IsNone(); !isNone {
 		t.Errorf("Expected `IsNone` to return true")
 	}
 	if none.IsSome() {
@@ -143,8 +152,8 @@ func TestOption_Nil_UnwrapOrElse(t *testing.T) {
 
 func BenchmarkOption_IsNone(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		none := None[int]()
-		none.IsNone()
+		none := None[int](errors.New("some err"))
+		_, _ = none.IsNone()
 	}
 }
 
@@ -178,8 +187,8 @@ func BenchmarkOption_UnwrapOrElse(b *testing.B) {
 
 func BenchmarkOption_IsNone_Struct(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		none := None[testStruct]()
-		none.IsNone()
+		none := None[testStruct](errors.New("some error"))
+		_, _ = none.IsNone()
 	}
 }
 
@@ -214,7 +223,7 @@ func BenchmarkOption_UnwrapOrElse_Struct(b *testing.B) {
 func BenchmarkOption_Nil(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		none := Some[*testStruct](nil)
-		none.IsNone()
+		_, _ = none.IsNone()
 	}
 }
 
@@ -248,9 +257,9 @@ func BenchmarkOption_Nil_UnwrapOrElse(b *testing.B) {
 
 func BenchmarkOption_IsNone_Parallel(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
-		none := None[int]()
+		none := None[int](errors.New("some error"))
 		for pb.Next() {
-			none.IsNone()
+			_, _ = none.IsNone()
 		}
 	})
 }
@@ -293,9 +302,9 @@ func BenchmarkOption_UnwrapOrElse_Parallel(b *testing.B) {
 
 func BenchmarkOption_IsNone_Struct_Parallel(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
-		none := None[testStruct]()
+		none := None[testStruct](errors.New("some error"))
 		for pb.Next() {
-			none.IsNone()
+			_, _ = none.IsNone()
 		}
 	})
 }
@@ -340,7 +349,7 @@ func BenchmarkOption_Nil_Parallel(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		none := Some[*testStruct](nil)
 		for pb.Next() {
-			none.IsNone()
+			_, _ = none.IsNone()
 		}
 	})
 }
@@ -380,9 +389,10 @@ func BenchmarkOption_Nil_UnwrapOrElse_Parallel(b *testing.B) {
 }
 
 func ExampleOption_IsNone() {
-	none := None[int]()
-	fmt.Println(none.IsNone())
-	// Output: true
+	none := None[int](errors.New("some error"))
+	isNone, err := none.IsNone()
+	fmt.Printf("IsNone: %t, Error: %q", isNone, err)
+	// Output: IsNone: true, Error: "some error"
 }
 
 func ExampleOption_IsSome() {

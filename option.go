@@ -1,29 +1,33 @@
 package option
 
-import "reflect"
+import (
+	"errors"
+	"reflect"
+)
 
 type Option[T any] struct {
 	none bool
 	some T
+	err  error
 }
 
 func Some[T any](value T) Option[T] {
 	if isNil(value) {
-		return Option[T]{none: true}
+		return Option[T]{none: true, err: errors.New("value cannot be nil")}
 	}
 	return Option[T]{some: value}
 }
 
-func None[T any]() Option[T] {
-	return Option[T]{none: true}
+func None[T any](err error) Option[T] {
+	return Option[T]{none: true, err: err}
 }
 
 func (o Option[T]) IsSome() bool {
 	return !o.none
 }
 
-func (o Option[T]) IsNone() bool {
-	return o.none
+func (o Option[T]) IsNone() (bool, error) {
+	return o.none, o.err
 }
 
 func (o Option[T]) Unwrap() T {
