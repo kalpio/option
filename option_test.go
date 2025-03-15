@@ -8,11 +8,23 @@ import (
 
 func TestOption_IsNone(t *testing.T) {
 	none := None[int](errors.New("some error"))
-	if isNone, _ := none.IsNone(); !isNone {
+	if isNone := none.IsNone(); !isNone {
 		t.Errorf("Expected `IsNone` to return true")
 	}
 	if none.IsSome() {
 		t.Errorf("Expected `IsSome` to return false")
+	}
+}
+
+func TestOption_Error(t *testing.T) {
+	expectedErr := errors.New("some error")
+	none := None[int](expectedErr)
+	if isNone := none.IsNone(); !isNone {
+		t.Errorf("Expected `IsNone` to return true")
+	}
+
+	if errors.Is(none.Error(), expectedErr) != true {
+		t.Errorf("Expected `Error()` to be `%v`", expectedErr)
 	}
 }
 
@@ -21,8 +33,18 @@ func TestOption_IsSome(t *testing.T) {
 	if !some.IsSome() {
 		t.Errorf("Expected `IsSome` to return true")
 	}
-	if isNone, _ := some.IsNone(); isNone {
+	if isNone := some.IsNone(); isNone {
 		t.Errorf("Expected `IsNone` to return false")
+	}
+}
+
+func TestOption_IsSome_ErrorIsNil(t *testing.T) {
+	some := Some[int](42)
+	if !some.IsSome() {
+		t.Errorf("Expected `IsSome` to return true")
+	}
+	if some.Error() != nil {
+		t.Errorf("Expected `Error()` to return nil")
 	}
 }
 
@@ -61,15 +83,12 @@ type testStruct struct {
 
 func TestOption_IsNone_Struct(t *testing.T) {
 	expectedError := errors.New("testStruct: error")
-	var (
-		isNone bool
-		err    error
-	)
+	var isNone bool
 	none := None[testStruct](expectedError)
-	if isNone, err = none.IsNone(); !isNone {
+	if isNone = none.IsNone(); !isNone {
 		t.Errorf("Expected `IsNone` to return true")
 	}
-	if !errors.Is(err, expectedError) {
+	if !errors.Is(none.Error(), expectedError) {
 		t.Errorf("Expected `err` to be `%q`", expectedError)
 	}
 	if none.IsSome() {
@@ -82,7 +101,7 @@ func TestOption_IsSome_Struct(t *testing.T) {
 	if !some.IsSome() {
 		t.Errorf("Expected `IsSome` to return true")
 	}
-	if isNone, _ := some.IsNone(); isNone {
+	if isNone := some.IsNone(); isNone {
 		t.Errorf("Expected `IsNone` to return false")
 	}
 }
@@ -118,7 +137,7 @@ func TestOption_UnwrapOrElse_Struct(t *testing.T) {
 
 func TestOption_Nil(t *testing.T) {
 	none := Some[*testStruct](nil)
-	if isNone, _ := none.IsNone(); !isNone {
+	if isNone := none.IsNone(); !isNone {
 		t.Errorf("Expected `IsNone` to return true")
 	}
 	if none.IsSome() {
@@ -153,7 +172,7 @@ func TestOption_Nil_UnwrapOrElse(t *testing.T) {
 func BenchmarkOption_IsNone(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		none := None[int](errors.New("some err"))
-		_, _ = none.IsNone()
+		_ = none.IsNone()
 	}
 }
 
@@ -188,7 +207,7 @@ func BenchmarkOption_UnwrapOrElse(b *testing.B) {
 func BenchmarkOption_IsNone_Struct(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		none := None[testStruct](errors.New("some error"))
-		_, _ = none.IsNone()
+		_ = none.IsNone()
 	}
 }
 
@@ -223,7 +242,7 @@ func BenchmarkOption_UnwrapOrElse_Struct(b *testing.B) {
 func BenchmarkOption_Nil(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		none := Some[*testStruct](nil)
-		_, _ = none.IsNone()
+		_ = none.IsNone()
 	}
 }
 
@@ -259,7 +278,7 @@ func BenchmarkOption_IsNone_Parallel(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		none := None[int](errors.New("some error"))
 		for pb.Next() {
-			_, _ = none.IsNone()
+			_ = none.IsNone()
 		}
 	})
 }
@@ -304,7 +323,7 @@ func BenchmarkOption_IsNone_Struct_Parallel(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		none := None[testStruct](errors.New("some error"))
 		for pb.Next() {
-			_, _ = none.IsNone()
+			_ = none.IsNone()
 		}
 	})
 }
@@ -349,7 +368,7 @@ func BenchmarkOption_Nil_Parallel(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		none := Some[*testStruct](nil)
 		for pb.Next() {
-			_, _ = none.IsNone()
+			_ = none.IsNone()
 		}
 	})
 }
@@ -390,7 +409,8 @@ func BenchmarkOption_Nil_UnwrapOrElse_Parallel(b *testing.B) {
 
 func ExampleOption_IsNone() {
 	none := None[int](errors.New("some error"))
-	isNone, err := none.IsNone()
+	isNone := none.IsNone()
+	err := none.Error()
 	fmt.Printf("IsNone: %t, Error: %q", isNone, err)
 	// Output: IsNone: true, Error: "some error"
 }

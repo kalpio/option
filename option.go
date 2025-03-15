@@ -26,8 +26,16 @@ func (o Option[T]) IsSome() bool {
 	return !o.none
 }
 
-func (o Option[T]) IsNone() (bool, error) {
-	return o.none, o.err
+func (o Option[T]) IsNone() bool {
+	return o.none
+}
+
+func (o Option[T]) Error() error {
+	if o.none {
+		return o.err
+	}
+
+	return nil
 }
 
 func (o Option[T]) Unwrap() T {
