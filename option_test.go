@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"strconv"
 	"testing"
 )
 
@@ -357,4 +358,164 @@ func ExampleOption_IsSome() {
 	some := Some[int](42)
 	fmt.Println(some.IsSome())
 	// Output: true
+}
+
+func TestOption_Filter(t *testing.T) {
+	// Test with Some value that passes the filter
+	some := Some(42)
+	filtered := some.Filter(func(n int) bool { return n > 0 })
+	assert.True(t, filtered.IsSome())
+	assert.Equal(t, 42, filtered.Unwrap())
+	assert.Nil(t, filtered.Error())
+
+	// Test with Some value that doesn't pass the filter
+	some = Some(-5)
+	filtered = some.Filter(func(n int) bool { return n > 0 })
+	assert.True(t, filtered.IsNone())
+	assert.False(t, filtered.IsSome())
+	assert.NotNil(t, filtered.Error())
+	assert.Equal(t, "option: value did not satisfy predicate", filtered.Error().Error())
+
+	// Test with None value
+	expectedErr := errors.New("original error")
+	none := None[int](expectedErr)
+	filtered = none.Filter(func(n int) bool { return n > 0 })
+	assert.True(t, filtered.IsNone())
+	assert.False(t, filtered.IsSome())
+	assert.ErrorIs(t, filtered.Error(), expectedErr)
+}
+
+func TestMap(t *testing.T) {
+	// Test with Some value
+	some := Some(42)
+	mapped := Map(some, func(n int) string { return fmt.Sprintf("value: %d", n) })
+	assert.True(t, mapped.IsSome())
+	assert.Equal(t, "value: 42", mapped.Unwrap())
+	assert.Nil(t, mapped.Error())
+
+	// Test with None value
+	expectedErr := errors.New("original error")
+	none := None[int](expectedErr)
+	mapped = Map(none, func(n int) string { return fmt.Sprintf("value: %d", n) })
+	assert.True(t, mapped.IsNone())
+	assert.False(t, mapped.IsSome())
+	assert.ErrorIs(t, mapped.Error(), expectedErr)
+
+	// Test with different types
+	strOpt := Some("hello")
+	lenOpt := Map(strOpt, func(s string) int { return len(s) })
+	assert.True(t, lenOpt.IsSome())
+	assert.Equal(t, 5, lenOpt.Unwrap())
+}
+
+func TestFlatMap(t *testing.T) {
+	// Test with Some value that maps to Some
+	some := Some("42")
+	result := FlatMap(some, func(s string) Option[int] {
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			return None[int](err)
+		}
+		return Some(n)
+	})
+	assert.True(t, result.IsSome())
+	assert.Equal(t, 42, result.Unwrap())
+	assert.Nil(t, result.Error())
+
+	// Test with Some value that maps to None
+	some = Some("not a number")
+	result = FlatMap(some, func(s string) Option[int] {
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			return None[int](err)
+		}
+		return Some(n)
+	})
+	assert.True(t, result.IsNone())
+	assert.False(t, result.IsSome())
+	assert.NotNil(t, result.Error())
+	assert.Contains(t, result.Error().Error(), "strconv.Atoi")
+
+	// Test with None value
+	expectedErr := errors.New("original error")
+	none := None[string](expectedErr)
+	result = FlatMap(none, func(s string) Option[int] {
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			return None[int](err)
+		}
+		return Some(n)
+	})
+	assert.True(t, result.IsNone())
+	assert.False(t, result.IsSome())
+	assert.ErrorIs(t, result.Error(), expectedErr)
+}
+
+func TestOption_Filter_Struct(t *testing.T) {
+	// Test with Some value that passes the filter
+	some := Some(testStruct{42})
+	filtered := some.Filter(func(ts testStruct) bool { return ts.value > 0 })
+	assert.True(t, filtered.IsSome())
+	assert.Equal(t, testStruct{42}, filtered.Unwrap())
+	assert.Nil(t, filtered.Error())
+
+	// Test with Some value that doesn't pass the filter
+	some = Some(testStruct{-5})
+	filtered = some.Filter(func(ts testStruct) bool { return ts.value > 0 })
+	assert.True(t, filtered.IsNone())
+	assert.False(t, filtered.IsSome())
+	assert.NotNil(t, filtered.Error())
+}
+
+func TestMap_Struct(t *testing.T) {
+	// Test with Some value
+	some := Some(testStruct{42})
+	mapped := Map(some, func(ts testStruct) string {
+		return fmt.Sprintf("value: %d", ts.value)
+	})
+	assert.True(t, mapped.IsSome())
+	assert.Equal(t, "value: 42", mapped.Unwrap())
+	assert.Nil(t, mapped.Error())
+
+	// Test mapping to a different struct
+	type otherStruct struct {
+		text string
+		num  int
+	}
+
+	mapped2 := Map(some, func(ts testStruct) otherStruct {
+		return otherStruct{
+			text: fmt.Sprintf("value: %d", ts.value),
+			num:  ts.value * 2,
+		}
+	})
+	assert.True(t, mapped2.IsSome())
+	assert.Equal(t, otherStruct{"value: 42", 84}, mapped2.Unwrap())
+}
+
+func TestFlatMap_Struct(t *testing.T) {
+	// Test with Some value that maps to Some
+	some := Some(testStruct{42})
+	result := FlatMap(some, func(ts testStruct) Option[string] {
+		if ts.value > 0 {
+			return Some(fmt.Sprintf("positive: %d", ts.value))
+		}
+		return None[string](errors.New("negative value"))
+	})
+	assert.True(t, result.IsSome())
+	assert.Equal(t, "positive: 42", result.Unwrap())
+	assert.Nil(t, result.Error())
+
+	// Test with Some value that maps to None
+	some = Some(testStruct{-5})
+	result = FlatMap(some, func(ts testStruct) Option[string] {
+		if ts.value > 0 {
+			return Some(fmt.Sprintf("positive: %d", ts.value))
+		}
+		return None[string](errors.New("negative value"))
+	})
+	assert.True(t, result.IsNone())
+	assert.False(t, result.IsSome())
+	assert.NotNil(t, result.Error())
+	assert.Equal(t, "negative value", result.Error().Error())
 }
